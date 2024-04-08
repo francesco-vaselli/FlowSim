@@ -10,7 +10,7 @@ from torch.nn import init
 
 class ResidualBlock(nn.Module):
     """A general-purpose residual block. Works only with 1-dim inputs.
-    imported from nflows https://github.com/bayesiains/nflows """
+    imported from nflows https://github.com/bayesiains/nflows"""
 
     def __init__(
         self,
@@ -108,7 +108,9 @@ class DenseResidualNet(nn.Module):
         self.context_features = context_features
         self.time_varying = time_varying
 
-        prev_size = self.input_dim + context_features if context_features else self.input_dim
+        prev_size = (
+            self.input_dim + context_features if context_features else self.input_dim
+        )
         if time_varying:
             prev_size += 1  # Add one for the time component
             self.context_features += 1
@@ -127,9 +129,11 @@ class DenseResidualNet(nn.Module):
         )
         self.resize_layers = nn.ModuleList(
             [
-                nn.Linear(self.hidden_dims[n - 1], self.hidden_dims[n])
-                if self.hidden_dims[n - 1] != self.hidden_dims[n]
-                else nn.Identity()
+                (
+                    nn.Linear(self.hidden_dims[n - 1], self.hidden_dims[n])
+                    if self.hidden_dims[n - 1] != self.hidden_dims[n]
+                    else nn.Identity()
+                )
                 for n in range(1, self.num_res_blocks)
             ]
             + [nn.Linear(self.hidden_dims[-1], self.output_dim)]
@@ -345,7 +349,7 @@ class AttentionMLP(nn.Module):
 
 
 def build_cfm_model(input_dim, context_dim, base_kwargs):
-    if base_kwargs["cfm"]["type"] == 'glu':
+    if base_kwargs["cfm"]["type"] == "glu":
         model = GLUMergedMLP(
             in_shape=input_dim,
             out_shape=input_dim,
@@ -359,7 +363,7 @@ def build_cfm_model(input_dim, context_dim, base_kwargs):
             batch_norm=base_kwargs["cfm"]["mlp_batch_norm"],
             time_varying=True,
         )
-    elif base_kwargs["cfm"]["type"] == 'mlp':
+    elif base_kwargs["cfm"]["type"] == "mlp":
         if base_kwargs["cfm"]["mlp_activation"] == "relu":
             activation = nn.ReLU()
         elif base_kwargs["cfm"]["mlp_activation"] == "elu":
@@ -381,7 +385,7 @@ def build_cfm_model(input_dim, context_dim, base_kwargs):
             batch_norm=base_kwargs["cfm"]["mlp_batch_norm"],
             time_varying=True,
         )
-    elif base_kwargs["cfm"]["type"] == 'resnet':
+    elif base_kwargs["cfm"]["type"] == "resnet":
         if base_kwargs["cfm"]["mlp_activation"] == "relu":
             resnet_activation = F.ReLU
         elif base_kwargs["cfm"]["mlp_activation"] == "elu":
@@ -429,9 +433,9 @@ def save_cfm_model(model, epoch, lr, name, input_dim, context_dim, base_kwargs, 
     torch.save(dict, p / resume_filename)
 
 
-def resume_cfm_model(path, filename):
+def resume_cfm_model(path, filename, device):
     p = Path(path)
-    dict = torch.load(p / filename)
+    dict = torch.load(p / filename, map_location=device)
 
     model = build_cfm_model(
         input_dim=dict["input_dim"],

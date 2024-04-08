@@ -1,0 +1,24 @@
+input_dim: 16 # Dimensionality of input (x)
+context_dim: 12 # Dimensionality of context (y)
+gpu: 0 # GPU to use
+load_kwargs:
+  log_name: "CRT"
+  process: "diboson"
+  cfm: true
+  dnf: false
+  checkpoint: "checkpoint-latest.pt"
+data_kwargs:
+  dataset_path: "../data/gen_diboson_200k.npy"
+  flavour_ohe: true
+  N_train: -1 # Number of samples
+  batch_size: 10000 # Batch size (increase to 4k for cfm)
+  standardize: true # Standardize data
+  physics_scaling: false # Scale data by physics intuition
+base_kwargs:
+  cfm: # conditional flow matching
+    sigma: 0.0001
+    matching_type: "AlphaTTarget"
+    ode_backend: "torchdiffeq" # ODE backend, choose from 'torchdiffeq' or 'torchdyn'
+    alpha: 1
+    timesteps: 100
+    type: "resnet"

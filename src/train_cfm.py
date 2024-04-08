@@ -94,7 +94,7 @@ def train(input_dim, context_dim, gpu, train_kwargs, data_kwargs, base_kwargs):
     else:
         resume_checkpoint = train_kwargs["resume_checkpoint"]
     if resume_checkpoint is not None and train_kwargs["resume"] == True:
-        model, start_epoch, lr = resume_cfm_model(save_dir, resume_checkpoint)
+        model, start_epoch, lr = resume_cfm_model(save_dir, resume_checkpoint, device)
         print(f"Resumed from: {start_epoch}")
 
     # send model to device
@@ -121,7 +121,6 @@ def train(input_dim, context_dim, gpu, train_kwargs, data_kwargs, base_kwargs):
     else:
         print("Scheduler not found, proceeding without it")
 
-
     train_dataset = TrainDataPreprocessor(data_kwargs)
     X_train, Y_train = train_dataset.get_dataset()
     test_dataset = TestDataPreprocessor(
@@ -130,7 +129,7 @@ def train(input_dim, context_dim, gpu, train_kwargs, data_kwargs, base_kwargs):
         scaler_y=train_dataset.scaler_y,
     )
     X_test, Y_test = test_dataset.get_dataset()
-    
+
     # send data to device
     X_train = torch.tensor(X_train).float().to(device)
     Y_train = torch.tensor(Y_train).float().to(device)
@@ -184,7 +183,7 @@ def train(input_dim, context_dim, gpu, train_kwargs, data_kwargs, base_kwargs):
         raise ValueError(
             "Noise distribution not found for this combination of matching type and noise distribution"
         )
-    
+
     print("Start epoch: %d End epoch: %d" % (start_epoch, epochs))
     train_history = []
     test_history = []
@@ -295,12 +294,14 @@ def train(input_dim, context_dim, gpu, train_kwargs, data_kwargs, base_kwargs):
                         # protection against underflows in torchdiffeq solver
                         while True:
                             try:
-                                x0_sample = noise_dist(len(Y_batch), X_test.shape[1]).to(
-                                    device
+                                x0_sample = noise_dist(
+                                    len(Y_batch), X_test.shape[1]
+                                ).to(device)
+
+                                initial_conditions = torch.cat(
+                                    [x0_sample, Y_batch], dim=-1
                                 )
 
-                                initial_conditions = torch.cat([x0_sample, Y_batch], dim=-1)
-                        
                                 # NOTE we take only the last timestep
                                 if base_kwargs["cfm"]["ode_backend"] == "torchdyn":
                                     samples = node.trajectory(
@@ -350,7 +351,6 @@ def train(input_dim, context_dim, gpu, train_kwargs, data_kwargs, base_kwargs):
             print("Starting evaluation")
 
             validate(samples, X_test_cpu, Y_test_cpu, save_dir, epoch, writer)
-
 
         if epoch % train_kwargs["save_freq"] == 0:
             save_cfm_model(
