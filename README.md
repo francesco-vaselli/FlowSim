@@ -1,5 +1,5 @@
 # FlowSim
-Code for training the models of the paper: End-to-end simulation of particle physics events with Flow Matching and generator Oversampling
+Code for training the models of the paper: [End-to-end simulation of particle physics events with Flow Matching and generator Oversampling](https://iopscience.iop.org/article/10.1088/2632-2153/ad563c) ([arXiv:2402.13684](https://arxiv.org/abs/2402.13684)).
 
 ## Generate data
 
