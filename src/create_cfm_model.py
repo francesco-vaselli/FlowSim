@@ -107,6 +107,7 @@ class DenseResidualNet(nn.Module):
         self.num_res_blocks = len(self.hidden_dims)
         self.context_features = context_features
         self.time_varying = time_varying
+        self.softmax = nn.Softmax(dim=0)
 
         prev_size = self.input_dim + context_features if context_features else self.input_dim
         if time_varying:
@@ -135,7 +136,12 @@ class DenseResidualNet(nn.Module):
             + [nn.Linear(self.hidden_dims[-1], self.output_dim)]
         )
 
-    def forward(self, inputs, context=None, flow_time=None):
+    def forward(self, inputs, context=None, flow_time=None, weights=None):
+        if weights is not None:
+            # weights = self.softmax(weights)
+            weights /= weights.max()
+            # print(weights)
+            inputs = inputs * weights
         if context is not None:
             inputs = torch.cat((inputs, context), dim=1)
         if self.time_varying:  # and flow_time is not None:

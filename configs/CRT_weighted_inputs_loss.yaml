@@ -7,7 +7,7 @@ train_kwargs:
   epochs: 1000  # Number of epochs
   lr: 0.001  # Learning rate
   optimizer: "adam"  # Optimizer
-  log_name: "CRT"  # Log directory NOTE: this will be overwritten if NAME IS THE SAME
+  log_name: "CRT_weighted_inputs_loss_divide_by_max"  # Log directory NOTE: this will be overwritten if NAME IS THE SAME
   resume: false  # Resume training
   resume_checkpoint: null # Checkpoint to resume from
   save_freq: 10  # Save frequency
@@ -22,7 +22,24 @@ data_kwargs:
   flavour_ohe: true  # One-hot encode flavour
   standardize: true  # Standardize data
   noise_distribution: "gaussian"  # Noise distribution, choose from 'gaussian' or 'uniform'
-  weights: {}  # Weights for each variable
+  weights: {
+    "btag": 10.0,
+    "recoPt": 10.0,
+    "recoPhi": 1.0,
+    "recoEta": 1.0,
+    "recoNConstituents": 1.0,
+    "nef": 1.0,
+    "nhf": 1.0,
+    "cef": 1.0,
+    "chf": 1.0,
+    "qgl": 10.0,
+    "jetId": 1.0,
+    "ncharged": 1.0,
+    "nneutral": 1.0,
+    "ctag": 10.0,
+    "nSV": 1.0,
+    "recoMass": 1.0,
+  }
   apply_weights_on_loss: true  # Apply weights on loss
   apply_weights_on_input: true  # Apply weights on input
 base_kwargs:

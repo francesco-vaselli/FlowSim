@@ -5,9 +5,9 @@ context_dim: 12  # Dimensionality of context (y)
 gpu : 0 # GPU to use
 train_kwargs:
   epochs: 1000  # Number of epochs
-  lr: 0.001  # Learning rate
+  lr: 0.0001  # Learning rate
   optimizer: "adam"  # Optimizer
-  log_name: "CRT"  # Log directory NOTE: this will be overwritten if NAME IS THE SAME
+  log_name: "CRT_consistency"  # Log directory NOTE: this will be overwritten if NAME IS THE SAME
   resume: false  # Resume training
   resume_checkpoint: null # Checkpoint to resume from
   save_freq: 10  # Save frequency
@@ -22,13 +22,30 @@ data_kwargs:
   flavour_ohe: true  # One-hot encode flavour
   standardize: true  # Standardize data
   noise_distribution: "gaussian"  # Noise distribution, choose from 'gaussian' or 'uniform'
-  weights: {}  # Weights for each variable
-  apply_weights_on_loss: true  # Apply weights on loss
-  apply_weights_on_input: true  # Apply weights on input
+  weights: {
+    "btag": 100.0,
+    "recoPt": 10.0,
+    "recoPhi": 1.0,
+    "recoEta": 1.0,
+    "recoNConstituents": 1.0,
+    "nef": 1.0,
+    "nhf": 1.0,
+    "cef": 1.0,
+    "chf": 1.0,
+    "qgl": 10.0,
+    "jetId": 1.0,
+    "ncharged": 1.0,
+    "nneutral": 1.0,
+    "ctag": 10.0,
+    "nSV": 1.0,
+    "recoMass": 1.0,
+  }
+  apply_weights_on_loss: false  # Apply weights on loss
+  apply_weights_on_input: false  # Apply weights on input
 base_kwargs:
   cfm: # conditional flow matching
     sigma: 0.0001
-    matching_type: "AlphaTTarget"
+    matching_type: "consistency"  # "AlphaTTarget"
     ode_backend: "torchdiffeq"  # ODE backend, choose from 'torchdiffeq' or 'torchdyn'
     alpha: 1
     timesteps: 100

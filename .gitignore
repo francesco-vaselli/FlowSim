@@ -1,3 +1,4 @@
+consistency*/
 # don't save datasets and checkpoints
 *.npy
 *.pt

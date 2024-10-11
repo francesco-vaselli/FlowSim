@@ -31,6 +31,7 @@ from modded_cfm import (
     AlphaTConditionalFlowMatcher,
     MyAlphaTTargetConditionalFlowMatcher,
 )
+from loss_fn import get_consistency_flow_matching_loss_fn
 
 
 def train(input_dim, context_dim, gpu, train_kwargs, data_kwargs, base_kwargs):
@@ -77,6 +78,9 @@ def train(input_dim, context_dim, gpu, train_kwargs, data_kwargs, base_kwargs):
         FM = ExactOptimalTransportConditionalFlowMatcher(sigma=sigma)
     elif base_kwargs["cfm"]["matching_type"] == "SchrodingerBridge":
         FM = SchrodingerBridgeConditionalFlowMatcher(sigma=sigma)
+    elif base_kwargs["cfm"]["matching_type"] == "consistency":
+        train_function = get_consistency_flow_matching_loss_fn(train=True)
+        test_function = get_consistency_flow_matching_loss_fn(train=False)
     else:
         raise ValueError("Matching type not found")
 
@@ -184,7 +188,23 @@ def train(input_dim, context_dim, gpu, train_kwargs, data_kwargs, base_kwargs):
         raise ValueError(
             "Noise distribution not found for this combination of matching type and noise distribution"
         )
+        
+    if data_kwargs["weights"] == {}:
+        variables_weight = torch.ones(X_train.shape[1]).to(device)
+    else:
+        # weights is a dictionary with keys column names and values the weights, so take only the values
+        variables_weight = torch.tensor(list(data_kwargs["weights"].values()), dtype=torch.float32
+                                        ).to(device)
     
+    if data_kwargs["apply_weights_on_input"]:
+        if variables_weight != {}:
+            input_weight = variables_weight
+        else:
+            raise ValueError("Weights not found for input")
+    else:
+        input_weight = None
+                
+    print("variables weight", variables_weight)
     print("Start epoch: %d End epoch: %d" % (start_epoch, epochs))
     train_history = []
     test_history = []
@@ -212,19 +232,31 @@ def train(input_dim, context_dim, gpu, train_kwargs, data_kwargs, base_kwargs):
 
                 optimizer.zero_grad()
 
-                x0 = noise_dist(X_batch.shape[0], X_batch.shape[1]).to(device)
+                if  base_kwargs["cfm"]["matching_type"] == "consistency":
+                    loss = train_function(model, X_batch, Y_batch)
+                    train_loss += loss
+                    loss.backward()
+                    optimizer.step()
+                    pbar.update(1)
+                    pbar.set_postfix({"Batch Loss": loss.item()})
+                else:  
+                    x0 = noise_dist(X_batch.shape[0], X_batch.shape[1]).to(device)
 
-                t, xt, ut = FM.sample_location_and_conditional_flow(x0, X_batch)
+                    t, xt, ut = FM.sample_location_and_conditional_flow(x0, X_batch)
 
-                vt = model(xt, context=Y_batch, flow_time=t[:, None])
-                loss = torch.mean((vt - ut) ** 2)
-                train_loss += loss.item()
-                loss.backward()
-                optimizer.step()
+                    vt = model(xt, context=Y_batch, flow_time=t[:, None], weights=input_weight)
+                    
+                    if data_kwargs["apply_weights_on_loss"]:
+                        loss = torch.mean((vt - ut) ** 2 * variables_weight)
+                    else:
+                        loss = torch.mean((vt - ut) ** 2)
+                    train_loss += loss.item()
+                    loss.backward()
+                    optimizer.step()
 
-                # Update the progress bar
-                pbar.update(1)
-                pbar.set_postfix({"Batch Loss": loss.item()})
+                    # Update the progress bar
+                    pbar.update(1)
+                    pbar.set_postfix({"Batch Loss": loss.item()})
 
         train_loss /= total_batches
 
@@ -242,11 +274,19 @@ def train(input_dim, context_dim, gpu, train_kwargs, data_kwargs, base_kwargs):
                 X_batch = X_test[i : i + test_batch_size]
                 Y_batch = Y_test[i : i + test_batch_size]
 
-                x0 = noise_dist(X_batch.shape[0], X_batch.shape[1]).to(device)
-                t, xt, ut = FM.sample_location_and_conditional_flow(x0, X_batch)
+                if  base_kwargs["cfm"]["matching_type"] == "consistency":
+                    loss = test_function(model, X_batch, Y_batch)
+                    test_loss += loss
+                else:
+                        
+                    x0 = noise_dist(X_batch.shape[0], X_batch.shape[1]).to(device)
+                    t, xt, ut = FM.sample_location_and_conditional_flow(x0, X_batch)
 
-                vt = model(xt, context=Y_batch, flow_time=t[:, None])
-                loss = torch.mean((vt - ut) ** 2)
+                    vt = model(xt, context=Y_batch, flow_time=t[:, None], weights=input_weight)
+                    if data_kwargs["apply_weights_on_loss"]:
+                        loss = torch.mean((vt - ut) ** 2 * variables_weight)
+                    else:
+                        loss = torch.mean((vt - ut) ** 2)
                 test_loss += loss.item()
 
             test_loss /= len(X_test) // test_batch_size
@@ -271,7 +311,7 @@ def train(input_dim, context_dim, gpu, train_kwargs, data_kwargs, base_kwargs):
             print("Starting sampling")
             model.eval()
             samples_list = []
-            sampler = ModelWrapper(model, context_dim=context_dim)
+            sampler = ModelWrapper(model, context_dim=context_dim, weights=input_weight)
             # NOTE it is not clear if we should work by batches here
             if base_kwargs["cfm"]["ode_backend"] == "torchdyn":
                 from torchdyn.core import NeuralODE

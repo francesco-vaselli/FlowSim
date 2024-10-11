@@ -16,7 +16,7 @@ import torch
 from torchcfm.conditional_flow_matching import ConditionalFlowMatcher, pad_t_like_x
 
 class ModelWrapper(nn.Module):
-    def __init__(self, base_model, context_dim=6):
+    def __init__(self, base_model, context_dim=6, weights=None):
         """
         Wraps a base model to only evolve the first part of the input specifying a certain context using the model.
 
@@ -26,6 +26,7 @@ class ModelWrapper(nn.Module):
         super(ModelWrapper, self).__init__()
         self.base_model = base_model.eval()
         self.context_dim = context_dim
+        self.weights = weights
 
     def forward(self, t, x, **kwargs):
         """
@@ -42,7 +43,7 @@ class ModelWrapper(nn.Module):
         xt, context = x[:, :-self.context_dim], x[:, -self.context_dim:]
         t_broadcasted = t.expand(x.shape[0], 1)
         # Only evolve xt using the model
-        dxt_dt = self.base_model(xt, context=context, flow_time=t_broadcasted)
+        dxt_dt = self.base_model(xt, context=context, flow_time=t_broadcasted, weights=self.weights)
 
         # Concatenate the derivatives of xt with zeros for context to keep their values unchanged
         zeros_for_context = torch.zeros_like(context)
